@@ -7,3 +7,6 @@ export * from './score.model';
 export * from './blocklist.model';
 export * from './session-rule.model';
 export * from './reviewer-settings.model';
+export * from './blocked-attempt.model';
+export * from './admin.model';
+export * from './downloads.model';

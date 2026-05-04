@@ -12,10 +12,23 @@ import { MESSAGE_KEYS } from '@shared/constants';
 import { logger } from '@utils';
 import { sessionService } from './session.service';
 
+// `closesInMs` is a server-computed convenience: how many ms until the
+// reviewer's deadline. Negative would mean already closed (sweeper hasn't
+// caught it yet); the candidate UI can hide those proactively.
+interface PendingItem extends IAssignmentInstance {
+  assignment: IAssignment;
+  closesInMs: number | null;
+}
+
+interface ClosedItem extends IAssignmentInstance {
+  assignment: IAssignment;
+}
+
 interface CandidateDashboard {
   candidate: { id: string; name: string; email: string };
-  pending: Array<IAssignmentInstance & { assignment: IAssignment }>;
+  pending: PendingItem[];
   inProgress: Array<IAssignmentInstance & { assignment: IAssignment; sessionId: string; expiresAt: Date }>;
+  closed: ClosedItem[];
   completed: Array<{
     instance: IAssignmentInstance;
     assignment: IAssignment;
@@ -49,7 +62,10 @@ export class CandidatePortalService {
 
       const pending: CandidateDashboard['pending'] = [];
       const inProgress: CandidateDashboard['inProgress'] = [];
+      const closed: CandidateDashboard['closed'] = [];
       const completed: CandidateDashboard['completed'] = [];
+
+      const now = Date.now();
 
       const inProgressInstances = instances.filter((i) => i.status === 'in_progress');
       const submittedInstances = instances.filter((i) => i.status === 'submitted' || i.status === 'scored');
@@ -66,7 +82,10 @@ export class CandidatePortalService {
         const assignment = aMap.get(i.assignmentId);
         if (!assignment) continue;
         if (i.status === 'pending') {
-          pending.push({ ...(i as IAssignmentInstance), assignment });
+          const closesInMs = i.deadline ? i.deadline.getTime() - now : null;
+          pending.push({ ...(i as IAssignmentInstance), assignment, closesInMs });
+        } else if (i.status === 'closed') {
+          closed.push({ ...(i as IAssignmentInstance), assignment });
         } else if (i.status === 'in_progress') {
           const s = sessionByInstance.get(i.id);
           if (s) {
@@ -78,6 +97,7 @@ export class CandidatePortalService {
             });
           }
         } else {
+          // submitted / scored
           const s = sessionByInstance.get(i.id);
           if (s) {
             const sc = scoreBySession.get(s.id);
@@ -103,6 +123,7 @@ export class CandidatePortalService {
           candidate: { id: candidate.id, name: candidate.name, email: candidate.email },
           pending,
           inProgress,
+          closed,
           completed,
           topBarStatus: status,
         },

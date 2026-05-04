@@ -41,6 +41,29 @@ export class BlocklistService {
       return new ServiceError('Fetch failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
     }
   }
+
+  async update(domains: string[]): Promise<ServiceResult<{ domains: string[]; updatedAt: Date }>> {
+    try {
+      await this.ensureSeeded();
+      // Normalize: lowercase + dedupe.
+      const normalized = Array.from(
+        new Set(domains.map((d) => d.trim().toLowerCase()).filter(Boolean))
+      );
+      const updated = await BlocklistModel.findOneAndUpdate(
+        { id: SINGLETON_ID },
+        { $set: { domains: normalized } },
+        { new: true }
+      ).lean();
+      if (!updated) return new ServiceError('Not found', MESSAGE_KEYS.NOT_FOUND);
+      return new ServiceSuccess(
+        { domains: updated.domains, updatedAt: updated.updatedAt },
+        MESSAGE_KEYS.BLOCKLIST_UPDATED
+      );
+    } catch (err) {
+      logger.error('Blocklist update failed', err);
+      return new ServiceError('Update failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
+    }
+  }
 }
 
 export const blocklistService = BlocklistService.getInstance();

@@ -1,9 +1,11 @@
 import {
   AssignmentInstanceModel,
   AssignmentModel,
+  BlockedAttemptModel,
   CandidateModel,
   IAssignment,
   IAssignmentInstance,
+  IBlockedAttempt,
   ISession,
   IScreenshotRef,
   SessionModel,
@@ -12,6 +14,7 @@ import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
 import { generateId, logger } from '@utils';
 import {
+  SessionBlockedAttemptDTO,
   SessionScreenshotDTO,
   SessionStartDTO,
   SessionSubmitDTO,
@@ -30,6 +33,7 @@ interface SessionDetail extends ISession {
   assignment: IAssignment | null;
   instance: IAssignmentInstance | null;
   candidate?: { id: string; name: string; email: string } | null;
+  blockedAttempts: IBlockedAttempt[];
 }
 
 export class SessionService {
@@ -58,7 +62,22 @@ export class SessionService {
 
       const instance = await AssignmentInstanceModel.findOne({ id: dto.instanceId, candidateId }).lean();
       if (!instance) return new ServiceError('Not found', MESSAGE_KEYS.INSTANCE_NOT_FOUND);
+      if (instance.status === 'closed') {
+        return new ServiceError('Closed', MESSAGE_KEYS.INSTANCE_CLOSED);
+      }
       if (instance.status !== 'pending') return new ServiceError('Not pending', MESSAGE_KEYS.INSTANCE_NOT_PENDING);
+
+      // Honor the reviewer's deadline. If we're already past it, close the
+      // instance now and reject the start. The 30s sweeper would do this
+      // eventually, but we check inline so the candidate gets immediate feedback
+      // instead of "you have 0 seconds to start" → start → instant expire.
+      if (instance.deadline && instance.deadline.getTime() <= Date.now()) {
+        await AssignmentInstanceModel.updateOne(
+          { id: instance.id, status: 'pending' },
+          { $set: { status: 'closed' } }
+        );
+        return new ServiceError('Past deadline', MESSAGE_KEYS.INSTANCE_PAST_DEADLINE);
+      }
 
       const assignment = await AssignmentModel.findOne({ id: instance.assignmentId }).lean();
       if (!assignment) return new ServiceError('Not found', MESSAGE_KEYS.ASSIGNMENT_NOT_FOUND);
@@ -189,14 +208,14 @@ export class SessionService {
       await this.lazyAutoClose(sessionId);
       const session = await SessionModel.findOne({ id: sessionId, reviewerId }).lean();
       if (!session) return new ServiceError('Not found', MESSAGE_KEYS.SESSION_NOT_FOUND);
-      const [assignmentDoc, instance, candidate] = await Promise.all([
-        AssignmentModel.findOne({ id: session.instanceId ? undefined : undefined }).lean(),
+      const [instance, candidate, blockedAttempts] = await Promise.all([
         AssignmentInstanceModel.findOne({ id: session.instanceId }).lean(),
         CandidateModel.findOne({ id: session.candidateId }).lean(),
+        BlockedAttemptModel.find({ sessionId: session.id }).sort({ attemptedAt: 1 }).lean(),
       ]);
       const assignment = instance
         ? await AssignmentModel.findOne({ id: instance.assignmentId }).lean()
-        : assignmentDoc;
+        : null;
       return new ServiceSuccess(
         {
           ...(session as ISession),
@@ -205,12 +224,47 @@ export class SessionService {
           candidate: candidate
             ? { id: candidate.id, name: candidate.name, email: candidate.email }
             : null,
+          blockedAttempts: blockedAttempts as IBlockedAttempt[],
         },
         MESSAGE_KEYS.SESSION_FETCHED
       );
     } catch (err) {
       logger.error('Reviewer session fetch failed', err);
       return new ServiceError('Fetch failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Records that the candidate's machine tried to reach a blocked domain.
+   * Called by the Electron app when its localhost listener catches a TLS or
+   * HTTP attempt to a blocked host. The screenshot key is captured at the
+   * same moment via the screenshot loop.
+   */
+  async recordBlockedAttempt(
+    candidateId: string,
+    sessionId: string,
+    dto: SessionBlockedAttemptDTO
+  ): Promise<ServiceResult<{ ok: true }>> {
+    try {
+      const session = await SessionModel.findOne({ id: sessionId, candidateId }).lean();
+      if (!session) return new ServiceError('Not found', MESSAGE_KEYS.SESSION_NOT_FOUND);
+      // Allow recording even slightly after expiry — the Electron app may have
+      // captured the attempt right before the timer fired locally. We just
+      // need it to belong to a session that exists.
+      const id = generateId(16, 'ba');
+      await BlockedAttemptModel.create({
+        id,
+        sessionId,
+        candidateId,
+        reviewerId: session.reviewerId,
+        domain: dto.domain,
+        attemptedAt: new Date(dto.attemptedAt),
+        screenshotKey: dto.screenshotKey ?? null,
+      });
+      return new ServiceSuccess({ ok: true }, MESSAGE_KEYS.BLOCKED_ATTEMPT_RECORDED);
+    } catch (err) {
+      logger.error('Blocked attempt record failed', err);
+      return new ServiceError('Record failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -241,22 +295,48 @@ export class SessionService {
   }
 
   async sweepCandidate(candidateId: string): Promise<void> {
-    const expired = await SessionModel.find({
-      candidateId,
-      status: 'in_progress',
-      expiresAt: { $lt: new Date() },
-    }).lean();
-    for (const s of expired) await this.autoCloseSession(s.id);
+    // Two parallel sweeps for one candidate: in-progress sessions past expiry,
+    // and pending instances past their deadline.
+    const now = new Date();
+    const [expiredSessions, expiredInstances] = await Promise.all([
+      SessionModel.find({ candidateId, status: 'in_progress', expiresAt: { $lt: now } }).lean(),
+      AssignmentInstanceModel.find({
+        candidateId,
+        status: 'pending',
+        deadline: { $ne: null, $lt: now },
+      }).lean(),
+    ]);
+    for (const s of expiredSessions) await this.autoCloseSession(s.id);
+    if (expiredInstances.length > 0) {
+      await AssignmentInstanceModel.updateMany(
+        { id: { $in: expiredInstances.map((i) => i.id) }, status: 'pending' },
+        { $set: { status: 'closed' } }
+      );
+    }
   }
 
-  async sweepAll(): Promise<number> {
-    const expired = await SessionModel.find({
-      status: 'in_progress',
-      expiresAt: { $lt: new Date() },
-    }).lean();
-    for (const s of expired) await this.autoCloseSession(s.id);
-    if (expired.length > 0) logger.info(`Sweeper auto-closed ${expired.length} session(s)`);
-    return expired.length;
+  async sweepAll(): Promise<{ sessions: number; instances: number }> {
+    const now = new Date();
+    const [expiredSessions, expiredInstances] = await Promise.all([
+      SessionModel.find({ status: 'in_progress', expiresAt: { $lt: now } }).lean(),
+      AssignmentInstanceModel.find({
+        status: 'pending',
+        deadline: { $ne: null, $lt: now },
+      }).lean(),
+    ]);
+    for (const s of expiredSessions) await this.autoCloseSession(s.id);
+    if (expiredInstances.length > 0) {
+      await AssignmentInstanceModel.updateMany(
+        { id: { $in: expiredInstances.map((i) => i.id) }, status: 'pending' },
+        { $set: { status: 'closed' } }
+      );
+    }
+    if (expiredSessions.length > 0 || expiredInstances.length > 0) {
+      logger.info(
+        `Sweeper auto-closed ${expiredSessions.length} session(s), ${expiredInstances.length} instance(s)`
+      );
+    }
+    return { sessions: expiredSessions.length, instances: expiredInstances.length };
   }
 }
 

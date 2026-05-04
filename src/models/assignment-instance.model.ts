@@ -1,6 +1,12 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type InstanceStatus = 'pending' | 'in_progress' | 'submitted' | 'scored';
+// State machine:
+//   pending → in_progress → submitted → scored   (the happy path)
+//   pending → closed                              (terminal, set by the sweeper
+//                                                  when the reviewer's deadline
+//                                                  has passed and the candidate
+//                                                  never started)
+export type InstanceStatus = 'pending' | 'in_progress' | 'submitted' | 'scored' | 'closed';
 
 export interface IAssignmentInstance {
   id: string;
@@ -22,7 +28,12 @@ const instanceSchema = new Schema<IAssignmentInstanceDocument>(
     candidateId: { type: String, required: true, index: true },
     reviewerId: { type: String, required: true, index: true },
     deadline: { type: Date, default: null },
-    status: { type: String, enum: ['pending', 'in_progress', 'submitted', 'scored'], default: 'pending', index: true },
+    status: {
+      type: String,
+      enum: ['pending', 'in_progress', 'submitted', 'scored', 'closed'],
+      default: 'pending',
+      index: true,
+    },
   },
   { timestamps: true, collection: 'assignment_instances' }
 );

@@ -1,7 +1,14 @@
 import { NextFunction, Response } from 'express';
 import { ResponseUtil } from '@utils/response.util';
 import { JWTUtil } from '@utils/jwt.util';
-import { CandidateRequest, ReviewerRequest, ReviewerJwtPayload, CandidateJwtPayload } from '@shared/types';
+import {
+  AdminJwtPayload,
+  AdminRequest,
+  CandidateRequest,
+  ReviewerRequest,
+  ReviewerJwtPayload,
+  CandidateJwtPayload,
+} from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
 
 const extract = (header?: string): string | null => {
@@ -41,5 +48,19 @@ export const requireCandidate = (req: CandidateRequest, res: Response, next: Nex
   next();
 };
 
-// Bonus: route the same MESSAGE_KEYS export so unused-import linters don't gripe.
+export const requireAdmin = (req: AdminRequest, res: Response, next: NextFunction): void => {
+  const token = extract(req.headers.authorization);
+  if (!token) {
+    ResponseUtil.unauthorized(res);
+    return;
+  }
+  const payload = JWTUtil.verify<AdminJwtPayload>(token);
+  if (!payload || payload.type !== 'admin') {
+    ResponseUtil.unauthorized(res);
+    return;
+  }
+  req.adminId = payload.adminId;
+  next();
+};
+
 void MESSAGE_KEYS;

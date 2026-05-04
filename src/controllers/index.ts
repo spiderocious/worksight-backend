@@ -9,3 +9,5 @@ export * from './health.controller';
 export * from './session-rule.controller';
 export * from './reviewer-settings.controller';
 export * from './downloads.controller';
+export * from './invite.controller';
+export * from './admin.controller';

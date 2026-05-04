@@ -19,6 +19,20 @@ export const sessionAbnormalSchema = z.object({
   detectedAt: z.string().datetime().optional(),
 });
 
+export const sessionBlockedAttemptSchema = z.object({
+  domain: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    // Domains only — no schemes, no paths. Strip if the client accidentally sent one.
+    .transform((v) => v.replace(/^https?:\/\//, '').split('/')[0]),
+  attemptedAt: z.string().datetime(),
+  screenshotKey: z.string().trim().min(1).max(200).optional(),
+});
+
+export type SessionBlockedAttemptDTO = z.infer<typeof sessionBlockedAttemptSchema>;
+
 export const scoreSchema = z.object({
   numericScore: z.number().min(0).max(100),
   feedback: z.string().min(1).max(5000),

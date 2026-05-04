@@ -8,3 +8,5 @@ export * from './blocklist.service';
 export * from './session-rule.service';
 export * from './reviewer-settings.service';
 export * from './downloads.service';
+export * from './invite.service';
+export * from './admin.service';

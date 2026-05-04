@@ -39,6 +39,8 @@ export const MESSAGE_KEYS = {
   INSTANCES_FETCHED: 'INSTANCES_FETCHED',
   INSTANCE_NOT_FOUND: 'INSTANCE_NOT_FOUND',
   INSTANCE_NOT_PENDING: 'INSTANCE_NOT_PENDING',
+  INSTANCE_CLOSED: 'INSTANCE_CLOSED',
+  INSTANCE_PAST_DEADLINE: 'INSTANCE_PAST_DEADLINE',
 
   SESSION_STARTED: 'SESSION_STARTED',
   SESSION_FETCHED: 'SESSION_FETCHED',
@@ -67,6 +69,21 @@ export const MESSAGE_KEYS = {
   SETTINGS_UPDATED: 'SETTINGS_UPDATED',
 
   DOWNLOADS_FETCHED: 'DOWNLOADS_FETCHED',
+
+  INVITE_FETCHED: 'INVITE_FETCHED',
+  INVITE_INVALID: 'INVITE_INVALID',
+
+  BLOCKED_ATTEMPT_RECORDED: 'BLOCKED_ATTEMPT_RECORDED',
+
+  ADMIN_CREATED: 'ADMIN_CREATED',
+  ADMIN_ALREADY_EXISTS: 'ADMIN_ALREADY_EXISTS',
+  ADMIN_LOGGED_IN: 'ADMIN_LOGGED_IN',
+  ADMIN_FETCHED: 'ADMIN_FETCHED',
+  ADMIN_INVALID_CREDENTIALS: 'ADMIN_INVALID_CREDENTIALS',
+  STATS_FETCHED: 'STATS_FETCHED',
+  USERS_FETCHED: 'USERS_FETCHED',
+  BLOCKLIST_UPDATED: 'BLOCKLIST_UPDATED',
+  DOWNLOADS_UPDATED: 'DOWNLOADS_UPDATED',
 } as const;
 
 export type MessageKey = keyof typeof MESSAGE_KEYS;
@@ -112,6 +129,8 @@ export const MESSAGES: Record<MessageKey, string> = {
   INSTANCES_FETCHED: 'Assignment instances fetched',
   INSTANCE_NOT_FOUND: 'Assignment instance not found',
   INSTANCE_NOT_PENDING: 'This assignment is no longer available to start',
+  INSTANCE_CLOSED: 'This assignment has closed.',
+  INSTANCE_PAST_DEADLINE: 'The deadline for this assignment has passed.',
 
   SESSION_STARTED: 'Session started',
   SESSION_FETCHED: 'Session fetched',
@@ -140,4 +159,19 @@ export const MESSAGES: Record<MessageKey, string> = {
   SETTINGS_UPDATED: 'Settings updated',
 
   DOWNLOADS_FETCHED: 'Downloads fetched',
+
+  INVITE_FETCHED: 'Invite fetched',
+  INVITE_INVALID: 'This invite link is no longer valid. Please contact your reviewer.',
+
+  BLOCKED_ATTEMPT_RECORDED: 'Blocked-domain attempt recorded',
+
+  ADMIN_CREATED: 'Admin account created. Save these credentials — they will not be shown again.',
+  ADMIN_ALREADY_EXISTS: 'Setup is already complete.',
+  ADMIN_LOGGED_IN: 'Signed in',
+  ADMIN_FETCHED: 'Admin fetched',
+  ADMIN_INVALID_CREDENTIALS: 'Invalid credentials',
+  STATS_FETCHED: 'Stats fetched',
+  USERS_FETCHED: 'Users fetched',
+  BLOCKLIST_UPDATED: 'Blocklist updated',
+  DOWNLOADS_UPDATED: 'Downloads updated',
 };

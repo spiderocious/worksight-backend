@@ -8,6 +8,7 @@ import {
 import { requireCandidate, validate } from '@middlewares';
 import {
   sessionAbnormalSchema,
+  sessionBlockedAttemptSchema,
   sessionScreenshotSchema,
   sessionStartSchema,
   sessionSubmitSchema,
@@ -44,6 +45,12 @@ router.post(
   requireCandidate,
   validate(sessionAbnormalSchema),
   sessionController.reportAbnormal
+);
+router.post(
+  '/sessions/:id/blocked-attempts',
+  requireCandidate,
+  validate(sessionBlockedAttemptSchema),
+  sessionController.recordBlockedAttempt
 );
 
 export default router;

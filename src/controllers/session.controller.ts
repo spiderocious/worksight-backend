@@ -56,6 +56,16 @@ export class SessionController {
     return ResponseUtil.success(res, result.data, result.messageKey!);
   });
 
+  recordBlockedAttempt = asyncHandler(async (req: CandidateRequest, res: Response) => {
+    const result = await sessionService.recordBlockedAttempt(
+      req.candidateId!,
+      req.params.id,
+      req.body
+    );
+    if (!result.success) return ResponseUtil.error(res, result.messageKey!, errStatus(result.messageKey));
+    return ResponseUtil.created(res, result.data, result.messageKey!);
+  });
+
   getCandidate = asyncHandler(async (req: CandidateRequest, res: Response) => {
     const result = await sessionService.getOwnedSession(req.candidateId!, req.params.id);
     if (!result.success) return ResponseUtil.notFound(res, result.messageKey!);
