@@ -1,0 +1,38 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "6.0",
+    "baseUrl": "./src",
+    "paths": {
+      "@controllers": ["controllers/index"],
+      "@controllers/*": ["controllers/*"],
+      "@services": ["services/index"],
+      "@services/*": ["services/*"],
+      "@models": ["models/index"],
+      "@models/*": ["models/*"],
+      "@routes": ["routes/index"],
+      "@routes/*": ["routes/*"],
+      "@middlewares": ["middlewares/index"],
+      "@middlewares/*": ["middlewares/*"],
+      "@configs": ["configs/index"],
+      "@configs/*": ["configs/*"],
+      "@requests": ["requests/index"],
+      "@requests/*": ["requests/*"],
+      "@shared": ["shared/index"],
+      "@shared/*": ["shared/*"],
+      "@utils": ["utils/index"],
+      "@utils/*": ["utils/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
