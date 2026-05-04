@@ -6,3 +6,6 @@ export * from './session.controller';
 export * from './score.controller';
 export * from './blocklist.controller';
 export * from './health.controller';
+export * from './session-rule.controller';
+export * from './reviewer-settings.controller';
+export * from './downloads.controller';

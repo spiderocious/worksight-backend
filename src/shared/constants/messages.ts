@@ -56,6 +56,17 @@ export const MESSAGE_KEYS = {
   HISTORY_FETCHED: 'HISTORY_FETCHED',
 
   BLOCKLIST_FETCHED: 'BLOCKLIST_FETCHED',
+
+  RULE_CREATED: 'RULE_CREATED',
+  RULE_UPDATED: 'RULE_UPDATED',
+  RULE_DELETED: 'RULE_DELETED',
+  RULES_FETCHED: 'RULES_FETCHED',
+  RULE_NOT_FOUND: 'RULE_NOT_FOUND',
+
+  SETTINGS_FETCHED: 'SETTINGS_FETCHED',
+  SETTINGS_UPDATED: 'SETTINGS_UPDATED',
+
+  DOWNLOADS_FETCHED: 'DOWNLOADS_FETCHED',
 } as const;
 
 export type MessageKey = keyof typeof MESSAGE_KEYS;
@@ -118,4 +129,15 @@ export const MESSAGES: Record<MessageKey, string> = {
   HISTORY_FETCHED: 'History fetched',
 
   BLOCKLIST_FETCHED: 'Blocklist fetched',
+
+  RULE_CREATED: 'Rule created',
+  RULE_UPDATED: 'Rule updated',
+  RULE_DELETED: 'Rule deleted',
+  RULES_FETCHED: 'Rules fetched',
+  RULE_NOT_FOUND: 'Rule not found',
+
+  SETTINGS_FETCHED: 'Settings fetched',
+  SETTINGS_UPDATED: 'Settings updated',
+
+  DOWNLOADS_FETCHED: 'Downloads fetched',
 };

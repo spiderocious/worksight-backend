@@ -7,6 +7,7 @@ import instanceRoutes from './instance.routes';
 import candidatePortalRoutes from './candidate-portal.routes';
 import sessionRoutes from './session.routes';
 import blocklistRoutes from './blocklist.routes';
+import publicRoutes from './public.routes';
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use('/assignment-instances', instanceRoutes);
 router.use('/candidate', candidatePortalRoutes);
 router.use('/sessions', sessionRoutes);
 router.use('/blocklist', blocklistRoutes);
+router.use('/public', publicRoutes);
 
 export default router;

@@ -22,6 +22,8 @@ interface StartedSession {
   startedAt: Date;
   expiresAt: Date;
   durationMinutes: number;
+  screenshotIntervalSeconds: { min: number; max: number };
+  showScreenshotWarning: boolean;
 }
 
 interface SessionDetail extends ISession {
@@ -78,8 +80,20 @@ export class SessionService {
       });
       await AssignmentInstanceModel.updateOne({ id: instance.id }, { $set: { status: 'in_progress' } });
 
+      // Pull reviewer-controlled settings so the Electron app knows how often
+      // to capture screenshots and whether to show the warning.
+      const { reviewerSettingsService } = await import('./reviewer-settings.service');
+      const settings = await reviewerSettingsService.getOrCreate(instance.reviewerId);
+
       return new ServiceSuccess(
-        { sessionId: id, startedAt, expiresAt, durationMinutes: assignment.durationMinutes },
+        {
+          sessionId: id,
+          startedAt,
+          expiresAt,
+          durationMinutes: assignment.durationMinutes,
+          screenshotIntervalSeconds: settings.screenshotIntervalSeconds,
+          showScreenshotWarning: settings.showScreenshotWarning,
+        },
         MESSAGE_KEYS.SESSION_STARTED
       );
     } catch (err) {

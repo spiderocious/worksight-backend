@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { candidatePortalController, sessionController } from '@controllers';
+import {
+  candidatePortalController,
+  reviewerSettingsController,
+  sessionController,
+  sessionRuleController,
+} from '@controllers';
 import { requireCandidate, validate } from '@middlewares';
 import {
   sessionAbnormalSchema,
@@ -12,6 +17,8 @@ const router = Router();
 
 router.get('/me', requireCandidate, candidatePortalController.me);
 router.get('/assignments/:instanceId', requireCandidate, candidatePortalController.instance);
+router.get('/rules', requireCandidate, sessionRuleController.forCandidate);
+router.get('/settings', requireCandidate, reviewerSettingsController.forCandidate);
 
 router.post(
   '/sessions/start',

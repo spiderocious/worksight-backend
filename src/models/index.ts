@@ -5,3 +5,5 @@ export * from './assignment-instance.model';
 export * from './session.model';
 export * from './score.model';
 export * from './blocklist.model';
+export * from './session-rule.model';
+export * from './reviewer-settings.model';

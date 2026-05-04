@@ -44,6 +44,12 @@ export class ReviewerService {
       const hashed = await bcrypt.hash(dto.password, 10);
       const id = generateId(16, 'rv');
       const created = await ReviewerModel.create({ id, name: dto.name, email: dto.email, password: hashed });
+      // Seed default rules + settings so the reviewer's first session works out of the box.
+      // Imported lazily here to avoid a circular dep at module-load time.
+      const { sessionRuleService } = await import('./session-rule.service');
+      const { reviewerSettingsService } = await import('./reviewer-settings.service');
+      await sessionRuleService.seedDefaultsForReviewer(id);
+      await reviewerSettingsService.getOrCreate(id);
       const token = JWTUtil.signReviewer({ reviewerId: id, type: 'reviewer' });
       return new ServiceSuccess({ token, reviewer: sanitize(created) }, MESSAGE_KEYS.REVIEWER_CREATED);
     } catch (err) {

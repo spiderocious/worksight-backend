@@ -5,3 +5,6 @@ export * from './candidate-portal.service';
 export * from './session.service';
 export * from './score.service';
 export * from './blocklist.service';
+export * from './session-rule.service';
+export * from './reviewer-settings.service';
+export * from './downloads.service';
