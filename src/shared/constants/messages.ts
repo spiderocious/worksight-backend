@@ -33,6 +33,7 @@ export const MESSAGE_KEYS = {
   ASSIGNMENT_NOT_FOUND: 'ASSIGNMENT_NOT_FOUND',
   ASSIGNMENT_LOCKED: 'ASSIGNMENT_LOCKED',
   ASSIGNMENT_ASSIGNED: 'ASSIGNMENT_ASSIGNED',
+  ASSIGNMENTS_BULK_ASSIGNED: 'ASSIGNMENTS_BULK_ASSIGNED',
 
   INSTANCE_CREATED: 'INSTANCE_CREATED',
   INSTANCE_FETCHED: 'INSTANCE_FETCHED',
@@ -123,6 +124,7 @@ export const MESSAGES: Record<MessageKey, string> = {
   ASSIGNMENT_NOT_FOUND: 'Assignment not found',
   ASSIGNMENT_LOCKED: 'This assignment cannot be edited because a session has already started',
   ASSIGNMENT_ASSIGNED: 'Assignment assigned to candidate',
+  ASSIGNMENTS_BULK_ASSIGNED: 'Assignments sent',
 
   INSTANCE_CREATED: 'Assignment instance created',
   INSTANCE_FETCHED: 'Assignment instance fetched',

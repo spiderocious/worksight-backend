@@ -10,6 +10,7 @@ import { MESSAGE_KEYS } from '@shared/constants';
 import { generateId, logger } from '@utils';
 import {
   AssignmentAssignDTO,
+  AssignmentBulkAssignDTO,
   AssignmentCreateDTO,
   AssignmentUpdateDTO,
 } from '@requests/assignment.requests';
@@ -119,6 +120,112 @@ export class AssignmentService {
     } catch (err) {
       logger.error('Assign to candidate failed', err);
       return new ServiceError('Assign failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Bulk assignment: each assignment in the body has its own deadline, and
+   * every chosen candidate gets every chosen assignment with that
+   * assignment's deadline. So 3 candidates × 3 assignments = 9 instances,
+   * with 3 distinct deadlines.
+   *
+   * Ownership is enforced by reviewerId on both sides — silently drops any
+   * assignment or candidate the reviewer doesn't own (which means the body
+   * was tampered with; we don't surface those as errors). Skips combinations
+   * the candidate already has (any status other than 'pending' too — we don't
+   * stomp completed work).
+   */
+  async bulkAssign(
+    reviewerId: string,
+    dto: AssignmentBulkAssignDTO
+  ): Promise<
+    ServiceResult<{
+      created: number;
+      skipped: number;
+      instances: IAssignmentInstance[];
+    }>
+  > {
+    try {
+      const assignmentIds = Array.from(new Set(dto.assignments.map((a) => a.assignmentId)));
+      const candidateIds = Array.from(new Set(dto.candidateIds));
+
+      // Filter to only assignments + candidates this reviewer actually owns.
+      const [ownedAssignments, ownedCandidates] = await Promise.all([
+        AssignmentModel.find({ id: { $in: assignmentIds }, createdBy: reviewerId })
+          .select('id')
+          .lean(),
+        CandidateModel.find({ id: { $in: candidateIds }, reviewerId, isActive: true })
+          .select('id')
+          .lean(),
+      ]);
+      const ownedAssignmentIds = new Set(ownedAssignments.map((a) => a.id));
+      const ownedCandidateIds = new Set(ownedCandidates.map((c) => c.id));
+
+      // Map assignmentId → deadline (preserve nulls).
+      const deadlineByAssignment = new Map<string, Date | null>();
+      for (const a of dto.assignments) {
+        if (!ownedAssignmentIds.has(a.assignmentId)) continue;
+        deadlineByAssignment.set(
+          a.assignmentId,
+          a.deadline ? new Date(a.deadline) : null
+        );
+      }
+
+      // Find existing instances so we don't create duplicates. Any existing
+      // instance for the same (candidate, assignment) pair counts as a skip,
+      // regardless of status — we don't want to start a fresh pending one
+      // when the candidate already submitted, scored, or is mid-session.
+      const existing = await AssignmentInstanceModel.find({
+        reviewerId,
+        candidateId: { $in: [...ownedCandidateIds] },
+        assignmentId: { $in: [...ownedAssignmentIds] },
+      })
+        .select('candidateId assignmentId')
+        .lean();
+      const existingPairs = new Set(
+        existing.map((e) => `${e.candidateId}::${e.assignmentId}`)
+      );
+
+      // Build the cartesian product, skipping owned-but-already-assigned pairs.
+      const docsToInsert: Array<Partial<IAssignmentInstance>> = [];
+      let skipped = 0;
+      for (const candidateId of ownedCandidateIds) {
+        for (const assignmentId of ownedAssignmentIds) {
+          const key = `${candidateId}::${assignmentId}`;
+          if (existingPairs.has(key)) {
+            skipped += 1;
+            continue;
+          }
+          docsToInsert.push({
+            id: generateId(16, 'in'),
+            assignmentId,
+            candidateId,
+            reviewerId,
+            deadline: deadlineByAssignment.get(assignmentId) ?? null,
+            status: 'pending',
+          });
+        }
+      }
+
+      // Also count requested-but-not-owned combos as skipped, so the UI
+      // can show a meaningful "X created, Y skipped" summary.
+      const requestedCombos = assignmentIds.length * candidateIds.length;
+      const ownedCombos = ownedAssignmentIds.size * ownedCandidateIds.size;
+      skipped += requestedCombos - ownedCombos;
+
+      let created: IAssignmentInstance[] = [];
+      if (docsToInsert.length > 0) {
+        const inserted = await AssignmentInstanceModel.insertMany(docsToInsert);
+        created = inserted.map((d) => d.toObject()) as IAssignmentInstance[];
+      }
+
+      return new ServiceSuccess(
+        { created: created.length, skipped, instances: created },
+        MESSAGE_KEYS.ASSIGNMENTS_BULK_ASSIGNED
+      );
+    } catch (err) {
+      logger.error('Bulk assign failed', err);
+      return new ServiceError('Bulk assign failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
     }
   }
 

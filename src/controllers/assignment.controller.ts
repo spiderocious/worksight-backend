@@ -64,6 +64,12 @@ export class AssignmentController {
     return ResponseUtil.created(res, result.data, result.messageKey!);
   });
 
+  bulkAssign = asyncHandler(async (req: ReviewerRequest, res: Response) => {
+    const result = await assignmentService.bulkAssign(req.reviewerId!, req.body);
+    if (!result.success) return ResponseUtil.error(res, result.messageKey!, HTTP_STATUS.BAD_REQUEST);
+    return ResponseUtil.created(res, result.data, result.messageKey!);
+  });
+
   listInstances = asyncHandler(async (req: ReviewerRequest, res: Response) => {
     const { candidateId, status } = req.query as Record<string, string | undefined>;
     const result = await assignmentService.listInstancesForReviewer(req.reviewerId!, { candidateId, status });

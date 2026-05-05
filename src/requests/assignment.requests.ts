@@ -64,6 +64,26 @@ export const assignmentAssignSchema = z.object({
   deadline: z.string().datetime().optional(),
 });
 
+// Bulk-assign: N candidates × M assignments. Each assignment carries its own
+// deadline (the deadline applies to every candidate getting that assignment —
+// per-cell deadlines aren't supported, intentionally; see docs/updates-v4.md).
+export const assignmentBulkAssignSchema = z.object({
+  assignments: z
+    .array(
+      z.object({
+        assignmentId: z.string().min(1),
+        deadline: z.string().datetime().nullable().optional(),
+      })
+    )
+    .min(1, 'Pick at least one assignment')
+    .max(50, 'Too many assignments in one bulk-assign'),
+  candidateIds: z
+    .array(z.string().min(1))
+    .min(1, 'Pick at least one candidate')
+    .max(100, 'Too many candidates in one bulk-assign'),
+});
+
 export type AssignmentCreateDTO = z.infer<typeof assignmentCreateSchema>;
 export type AssignmentUpdateDTO = z.infer<typeof assignmentUpdateSchema>;
 export type AssignmentAssignDTO = z.infer<typeof assignmentAssignSchema>;
+export type AssignmentBulkAssignDTO = z.infer<typeof assignmentBulkAssignSchema>;
