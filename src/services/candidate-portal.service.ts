@@ -6,6 +6,7 @@ import {
   IAssignmentInstance,
   ScoreModel,
   SessionModel,
+  normalizeAssignment,
 } from '@models';
 import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
@@ -58,7 +59,7 @@ export class CandidatePortalService {
       const instances = await AssignmentInstanceModel.find({ candidateId }).sort({ createdAt: -1 }).lean();
       const aIds = Array.from(new Set(instances.map((i) => i.assignmentId)));
       const assignments = await AssignmentModel.find({ id: { $in: aIds } }).lean();
-      const aMap = new Map(assignments.map((a) => [a.id, a as IAssignment]));
+      const aMap = new Map(assignments.map((a) => [a.id, normalizeAssignment(a as IAssignment)]));
 
       const pending: CandidateDashboard['pending'] = [];
       const inProgress: CandidateDashboard['inProgress'] = [];
@@ -145,7 +146,7 @@ export class CandidatePortalService {
       const assignment = await AssignmentModel.findOne({ id: instance.assignmentId }).lean();
       if (!assignment) return new ServiceError('Not found', MESSAGE_KEYS.ASSIGNMENT_NOT_FOUND);
       return new ServiceSuccess(
-        { instance: instance as IAssignmentInstance, assignment: assignment as IAssignment },
+        { instance: instance as IAssignmentInstance, assignment: normalizeAssignment(assignment as IAssignment) },
         MESSAGE_KEYS.INSTANCE_FETCHED
       );
     } catch (err) {

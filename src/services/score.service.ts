@@ -7,6 +7,7 @@ import {
   ISession,
   ScoreModel,
   SessionModel,
+  normalizeAssignment,
 } from '@models';
 import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
@@ -86,7 +87,7 @@ export class ScoreService {
         AssignmentModel.find({ id: { $in: aIds } }).lean(),
         SessionModel.find({ candidateId, instanceId: { $in: instances.map((i) => i.id) } }).lean(),
       ]);
-      const aMap = new Map(assignments.map((a) => [a.id, a as IAssignment]));
+      const aMap = new Map(assignments.map((a) => [a.id, normalizeAssignment(a as IAssignment)]));
       const sMap = new Map(sessions.map((s) => [s.instanceId, s as ISession]));
       const scores = await ScoreModel.find({ sessionId: { $in: sessions.map((s) => s.id) } }).lean();
       const scMap = new Map(scores.map((s) => [s.sessionId, s as IScore]));

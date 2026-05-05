@@ -4,6 +4,7 @@ import {
   CandidateModel,
   IAssignment,
   IAssignmentInstance,
+  normalizeAssignment,
 } from '@models';
 import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
@@ -32,7 +33,7 @@ export class AssignmentService {
     try {
       const id = generateId(16, 'as');
       const created = await AssignmentModel.create({ id, ...dto, createdBy: reviewerId });
-      return new ServiceSuccess(created.toObject() as IAssignment, MESSAGE_KEYS.ASSIGNMENT_CREATED);
+      return new ServiceSuccess(normalizeAssignment(created.toObject() as IAssignment), MESSAGE_KEYS.ASSIGNMENT_CREATED);
     } catch (err) {
       logger.error('Assignment create failed', err);
       return new ServiceError('Create failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
@@ -42,7 +43,7 @@ export class AssignmentService {
   async listForReviewer(reviewerId: string): Promise<ServiceResult<IAssignment[]>> {
     try {
       const list = await AssignmentModel.find({ createdBy: reviewerId }).sort({ createdAt: -1 }).lean();
-      return new ServiceSuccess(list as IAssignment[], MESSAGE_KEYS.ASSIGNMENTS_FETCHED);
+      return new ServiceSuccess((list as IAssignment[]).map(normalizeAssignment), MESSAGE_KEYS.ASSIGNMENTS_FETCHED);
     } catch (err) {
       logger.error('Assignment list failed', err);
       return new ServiceError('List failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
@@ -53,7 +54,7 @@ export class AssignmentService {
     try {
       const assignment = await AssignmentModel.findOne({ id, createdBy: reviewerId }).lean();
       if (!assignment) return new ServiceError('Not found', MESSAGE_KEYS.ASSIGNMENT_NOT_FOUND);
-      return new ServiceSuccess(assignment as IAssignment, MESSAGE_KEYS.ASSIGNMENT_FETCHED);
+      return new ServiceSuccess(normalizeAssignment(assignment as IAssignment), MESSAGE_KEYS.ASSIGNMENT_FETCHED);
     } catch (err) {
       logger.error('Assignment get failed', err);
       return new ServiceError('Get failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
@@ -73,7 +74,7 @@ export class AssignmentService {
         { new: true }
       ).lean();
       if (!updated) return new ServiceError('Not found', MESSAGE_KEYS.ASSIGNMENT_NOT_FOUND);
-      return new ServiceSuccess(updated as IAssignment, MESSAGE_KEYS.ASSIGNMENT_UPDATED);
+      return new ServiceSuccess(normalizeAssignment(updated as IAssignment), MESSAGE_KEYS.ASSIGNMENT_UPDATED);
     } catch (err) {
       logger.error('Assignment update failed', err);
       return new ServiceError('Update failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
@@ -244,7 +245,7 @@ export class AssignmentService {
         AssignmentModel.find({ id: { $in: aIds } }).lean(),
         CandidateModel.find({ id: { $in: cIds } }).lean(),
       ]);
-      const aMap = new Map(assignments.map((a) => [a.id, a as IAssignment]));
+      const aMap = new Map(assignments.map((a) => [a.id, normalizeAssignment(a as IAssignment)]));
       const cMap = new Map(
         candidates.map((c) => [c.id, { id: c.id, name: c.name, email: c.email }])
       );

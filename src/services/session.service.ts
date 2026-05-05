@@ -9,6 +9,7 @@ import {
   ISession,
   IScreenshotRef,
   SessionModel,
+  normalizeAssignment,
 } from '@models';
 import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
 import { MESSAGE_KEYS } from '@shared/constants';
@@ -219,7 +220,7 @@ export class SessionService {
       return new ServiceSuccess(
         {
           ...(session as ISession),
-          assignment: (assignment as IAssignment | null) ?? null,
+          assignment: normalizeAssignment((assignment as IAssignment | null) ?? null),
           instance: (instance as IAssignmentInstance | null) ?? null,
           candidate: candidate
             ? { id: candidate.id, name: candidate.name, email: candidate.email }
