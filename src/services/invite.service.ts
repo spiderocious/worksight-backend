@@ -71,7 +71,7 @@ export class InviteService {
       }
 
       const rules: InviteRule[] = rulesResult.success && rulesResult.data
-        ? rulesResult.data.map((r) => ({
+        ? rulesResult.data.filter((r) => r.active).map((r) => ({
             id: r.id,
             icon: r.icon,
             title: r.title,
