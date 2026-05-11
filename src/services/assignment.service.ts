@@ -14,6 +14,7 @@ import {
   AssignmentBulkAssignDTO,
   AssignmentCreateDTO,
   AssignmentUpdateDTO,
+  InstanceUpdateDeadlineDTO,
 } from '@requests/assignment.requests';
 
 export interface InstanceWithAssignment extends IAssignmentInstance {
@@ -227,6 +228,44 @@ export class AssignmentService {
     } catch (err) {
       logger.error('Bulk assign failed', err);
       return new ServiceError('Bulk assign failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Reviewer-side: update an existing instance's deadline. Allowed while the
+   * instance is still actionable (pending / in_progress / submitted). Terminal
+   * states (scored, closed) are rejected — scored work shouldn't be re-opened
+   * by silently extending its deadline, and a closed instance is closed.
+   *
+   * Passing `deadline: null` explicitly clears the deadline (turns it into an
+   * open-ended assignment). Passing a past date is rejected — we don't want
+   * to force-close via deadline edits; that's a separate concern.
+   */
+  async updateInstanceDeadline(
+    reviewerId: string,
+    instanceId: string,
+    dto: InstanceUpdateDeadlineDTO
+  ): Promise<ServiceResult<IAssignmentInstance>> {
+    try {
+      const instance = await AssignmentInstanceModel.findOne({ id: instanceId, reviewerId }).lean();
+      if (!instance) return new ServiceError('Not found', MESSAGE_KEYS.INSTANCE_NOT_FOUND);
+      if (instance.status === 'scored' || instance.status === 'closed') {
+        return new ServiceError('Not editable', MESSAGE_KEYS.INSTANCE_NOT_EDITABLE);
+      }
+      const nextDeadline = dto.deadline ? new Date(dto.deadline) : null;
+      if (nextDeadline && nextDeadline.getTime() <= Date.now()) {
+        return new ServiceError('Past deadline', MESSAGE_KEYS.INSTANCE_DEADLINE_IN_PAST);
+      }
+      const updated = await AssignmentInstanceModel.findOneAndUpdate(
+        { id: instanceId, reviewerId },
+        { $set: { deadline: nextDeadline } },
+        { new: true }
+      ).lean();
+      if (!updated) return new ServiceError('Not found', MESSAGE_KEYS.INSTANCE_NOT_FOUND);
+      return new ServiceSuccess(updated as IAssignmentInstance, MESSAGE_KEYS.INSTANCE_UPDATED);
+    } catch (err) {
+      logger.error('Instance deadline update failed', err);
+      return new ServiceError('Update failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
     }
   }
 

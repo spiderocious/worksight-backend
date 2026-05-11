@@ -76,6 +76,20 @@ export class AssignmentController {
     if (!result.success) return ResponseUtil.error(res, result.messageKey!);
     return ResponseUtil.success(res, result.data, result.messageKey!);
   });
+
+  updateInstanceDeadline = asyncHandler(async (req: ReviewerRequest, res: Response) => {
+    const result = await assignmentService.updateInstanceDeadline(req.reviewerId!, req.params.id, req.body);
+    if (!result.success) {
+      const status =
+        result.messageKey === MESSAGE_KEYS.INSTANCE_NOT_FOUND
+          ? HTTP_STATUS.NOT_FOUND
+          : result.messageKey === MESSAGE_KEYS.INSTANCE_NOT_EDITABLE
+            ? HTTP_STATUS.CONFLICT
+            : HTTP_STATUS.BAD_REQUEST;
+      return ResponseUtil.error(res, result.messageKey!, status);
+    }
+    return ResponseUtil.success(res, result.data, result.messageKey!);
+  });
 }
 
 export const assignmentController = AssignmentController.getInstance();

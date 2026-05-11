@@ -83,7 +83,14 @@ export const assignmentBulkAssignSchema = z.object({
     .max(100, 'Too many candidates in one bulk-assign'),
 });
 
+// Reviewer-side edit of an existing instance's deadline. `null` is the
+// explicit "clear the deadline" signal — distinct from "field absent".
+export const instanceUpdateDeadlineSchema = z.object({
+  deadline: z.string().datetime().nullable(),
+});
+
 export type AssignmentCreateDTO = z.infer<typeof assignmentCreateSchema>;
 export type AssignmentUpdateDTO = z.infer<typeof assignmentUpdateSchema>;
 export type AssignmentAssignDTO = z.infer<typeof assignmentAssignSchema>;
 export type AssignmentBulkAssignDTO = z.infer<typeof assignmentBulkAssignSchema>;
+export type InstanceUpdateDeadlineDTO = z.infer<typeof instanceUpdateDeadlineSchema>;
