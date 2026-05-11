@@ -1,9 +1,12 @@
 import {
   AssignmentInstanceModel,
   AssignmentModel,
+  BlockedAttemptModel,
   CandidateModel,
   IAssignment,
   IAssignmentInstance,
+  ScoreModel,
+  SessionModel,
   normalizeAssignment,
 } from '@models';
 import { ServiceError, ServiceResult, ServiceSuccess } from '@shared/types';
@@ -269,6 +272,100 @@ export class AssignmentService {
     } catch (err) {
       logger.error('Instance deadline update failed', err);
       return new ServiceError('Update failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Reviewer-side: remove a single assigned-instance from a candidate.
+   *
+   * Semantics by status (the UI surfaces the right copy per status, but this
+   * method enforces the contract regardless of how the request arrived):
+   *
+   *  - pending      → revoke. No session exists; just drop the row.
+   *  - in_progress  → blocked. Don't yank an active attempt out from under a
+   *                   candidate; the reviewer should let it finish (or close
+   *                   it via the deadline sweeper) before removing.
+   *  - submitted    → discard submission. Delete session + blocked attempts.
+   *                   No score yet by definition.
+   *  - closed       → clean up. No session.
+   *  - scored       → requires `force=true`. We also remove the score, since
+   *                   the score's sessionId points at a session we're about
+   *                   to delete, and orphaning it would be worse than the
+   *                   destructive intent the reviewer just confirmed.
+   *
+   * Files (screenshots) are intentionally NOT cleaned up from the file
+   * service here. The file service has no DELETE endpoint today — the
+   * sessions-on-assignment-delete path already leaks them, and this matches
+   * that behavior. Tracked separately.
+   */
+  async deleteInstance(
+    reviewerId: string,
+    instanceId: string,
+    opts: { force?: boolean } = {}
+  ): Promise<
+    ServiceResult<{
+      ok: true;
+      deleted: {
+        instance: string;
+        session: string | null;
+        score: string | null;
+        blockedAttempts: number;
+      };
+    }>
+  > {
+    try {
+      const instance = await AssignmentInstanceModel.findOne({ id: instanceId, reviewerId }).lean();
+      if (!instance) return new ServiceError('Not found', MESSAGE_KEYS.INSTANCE_NOT_FOUND);
+
+      if (instance.status === 'in_progress') {
+        return new ServiceError('In progress', MESSAGE_KEYS.INSTANCE_IN_PROGRESS_BLOCKED);
+      }
+      if (instance.status === 'scored' && !opts.force) {
+        return new ServiceError('Scored needs force', MESSAGE_KEYS.INSTANCE_SCORED_NEEDS_FORCE);
+      }
+
+      // Sessions are 1:1 with instances in practice (only one in_progress per
+      // candidate at a time, and we never re-create sessions for the same
+      // instance). Use findOne defensively anyway.
+      const session = await SessionModel.findOne({ instanceId: instance.id, reviewerId }).lean();
+
+      let deletedScore: string | null = null;
+      let deletedBlockedAttempts = 0;
+      const sessionId = session?.id ?? null;
+
+      if (session) {
+        // Score & blocked attempts both reference sessionId.
+        const score = await ScoreModel.findOne({ sessionId: session.id }).lean();
+        if (score) {
+          await ScoreModel.deleteOne({ id: score.id });
+          deletedScore = score.id;
+        }
+        const attemptsResult = await BlockedAttemptModel.deleteMany({ sessionId: session.id });
+        deletedBlockedAttempts = attemptsResult.deletedCount ?? 0;
+        await SessionModel.deleteOne({ id: session.id });
+      }
+
+      // Delete the instance last — so a mid-cascade failure leaves the system
+      // with no orphaned dependent rows pointing at a deleted instance. Worst
+      // case: instance still exists but its session is gone, which a retry
+      // resolves (deleteOne on missing session is a no-op).
+      await AssignmentInstanceModel.deleteOne({ id: instance.id, reviewerId });
+
+      return new ServiceSuccess(
+        {
+          ok: true as const,
+          deleted: {
+            instance: instance.id,
+            session: sessionId,
+            score: deletedScore,
+            blockedAttempts: deletedBlockedAttempts,
+          },
+        },
+        MESSAGE_KEYS.INSTANCE_DELETED
+      );
+    } catch (err) {
+      logger.error('Delete instance failed', err);
+      return new ServiceError('Delete failed', MESSAGE_KEYS.INTERNAL_SERVER_ERROR);
     }
   }
 

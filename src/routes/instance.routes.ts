@@ -12,5 +12,6 @@ router.patch(
   validate(instanceUpdateDeadlineSchema),
   assignmentController.updateInstanceDeadline
 );
+router.delete('/:id', requireReviewer, assignmentController.deleteInstance);
 
 export default router;

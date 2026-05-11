@@ -90,6 +90,25 @@ export class AssignmentController {
     }
     return ResponseUtil.success(res, result.data, result.messageKey!);
   });
+
+  deleteInstance = asyncHandler(async (req: ReviewerRequest, res: Response) => {
+    // ?force=true is the explicit opt-in for removing a scored instance
+    // (which also removes the score). Any other truthy value is treated as
+    // false — we want a literal, intentional opt-in.
+    const force = req.query.force === 'true';
+    const result = await assignmentService.deleteInstance(req.reviewerId!, req.params.id, { force });
+    if (!result.success) {
+      const status =
+        result.messageKey === MESSAGE_KEYS.INSTANCE_NOT_FOUND
+          ? HTTP_STATUS.NOT_FOUND
+          : result.messageKey === MESSAGE_KEYS.INSTANCE_IN_PROGRESS_BLOCKED ||
+              result.messageKey === MESSAGE_KEYS.INSTANCE_SCORED_NEEDS_FORCE
+            ? HTTP_STATUS.CONFLICT
+            : HTTP_STATUS.BAD_REQUEST;
+      return ResponseUtil.error(res, result.messageKey!, status);
+    }
+    return ResponseUtil.success(res, result.data, result.messageKey!);
+  });
 }
 
 export const assignmentController = AssignmentController.getInstance();
