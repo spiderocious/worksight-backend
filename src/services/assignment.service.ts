@@ -64,11 +64,14 @@ export class AssignmentService {
 
   async update(reviewerId: string, id: string, dto: AssignmentUpdateDTO): Promise<ServiceResult<IAssignment>> {
     try {
-      const started = await AssignmentInstanceModel.findOne({
-        assignmentId: id,
-        status: { $in: ['in_progress', 'submitted', 'scored'] },
-      }).lean();
-      if (started) return new ServiceError('Locked', MESSAGE_KEYS.ASSIGNMENT_LOCKED);
+      // Note: edits are intentionally NOT locked when instances exist. The
+      // data model joins live — there's no per-instance snapshot of brief /
+      // title / submissionType — so an edit propagates to anyone whose
+      // instance is still active. The reviewer UI surfaces a banner with the
+      // blast radius before they save. Sessions snapshot `durationMinutes`
+      // into `expiresAt` at start time, so in-progress timers are unaffected
+      // by duration changes; only future starts use the new value. Delete is
+      // still locked separately (see `delete()` below).
       const updated = await AssignmentModel.findOneAndUpdate(
         { id, createdBy: reviewerId },
         { $set: dto },
